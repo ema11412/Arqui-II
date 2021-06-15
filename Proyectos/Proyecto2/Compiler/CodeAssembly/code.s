@@ -1,0 +1,160 @@
+MOVI R0, #0
+MOVI R1, #ANCHOIMG  ;w - ancho de la imagen
+MOVI R2, #ALTOIMG  ;h - alto de la imagen
+MOVI R11, #COLOR1
+MOVI R12, #COLOR2
+MOVI R13, #OPACIDAD
+MOVI R9, #DIRECCIONIMG
+MOVI R10, #DIRECCIONGRADIENTE
+MOVI R15, #DIRECCIONDESALIDA
+
+MOVI R14, #1  ;direction ->> 1: Vertical  2: Horizontal  3: Diagonal  4: propuesto
+
+.MAIN:
+MOV R7, #4
+BLE R14, R7, OWN
+MOV R7, #3
+BLE R14, R7, DIAGONAL
+MOV R7, #2
+BLE R14, R7, HORIZONTAL
+JMP VERTICAL
+NOP        ;# SALTO ACA LUEGO DEL DEGRADADO
+MUL R3, R1, R2
+JMP ALPHA
+
+.ALPHA:
+BLE R3, R0, END
+VST VR1, R10    ;LEEMOS EN LA IMAGEN DE ENTRADA
+VST VR2, R9   ;LEEMOS EN EL DEGRADADO
+ADDI R10, R10, 1
+ADDI R9, R9, 1
+VOPA VR3, VR1, VR2
+VST R15, VR3  ;escribimos en la imagen de salida
+ADDI R15, R15, 1
+SUBI R3, R3, #1
+JMP ALPHA
+;---------- comparaciones del user--------------------------
+
+.VERTICAL:
+SUBI R3,  R1,  #1 ; W-1      ;f = w - 1
+VLD VR14, R3
+MOV R4, R1  ;w - contador ancho
+MOV R5, R2	 ;h - contador altura
+JMP LOOP_VERTICAL_1
+
+.LOOP_VERTICAL_1: ;for column in range(w):
+BLE R4, R0, ENDLOOPS_1    
+JMP LOOP_VERTICAL_2  
+
+.LOOP_VERTICAL_2:  ;for row in range(h):
+BLE R5, R0, ENDLOOP_VERTICAL_2
+VLD VR5, R4
+VOPG VR6, VR5, VR14
+
+VST R9, VR6   ;SE GUARDA EN EL ARCHIVO DEL DEGRADADO
+ADDI R9, R9, 1
+SUBI R5, R5, #1  
+JMP LOOP_VERTICAL_2
+
+.ENDLOOP_VERTICAL_2:
+SUBI R4, R4, #1
+MOV R5, R2 
+JMP  LOOP_VERTICAL_1
+;--------------------------------------------------------------------------------
+.HORIZONTAL:
+SUBI R3,  R1,  #1  ;W-1     f = w - 1	
+VLD VR14, R3
+MOV R4, R2	 ;h
+MOV R5, R1	 ;w 
+JMP LOOP_HORIZONTAL_1
+
+.LOOP_HORIZONTAL_1: ;for column in range(w):
+BLE R4, R0, ENDLOOPS_1 ;COMPARA R4 <= R0  
+JMP LOOP_HORIZONTAL_2  
+
+.LOOP_HORIZONTAL_2:  ;for row in range(h):
+BLE R5, R0, ENDLOOP_HORIZONTAL_2
+VLD VR5, R4
+VOPG VR6, VR5, VR14
+VST R9, VR6   ;SE GUARDA EN EL ARCHIVO DEL DEGRADADO
+ADDI R9, R9, 1
+SUBI R5, R5, #1  
+JMP LOOP_HORIZONTAL_2
+
+.ENDLOOP_HORIZONTAL_2:
+SUBI R4, R4, #1
+MOV R5, R1 
+JUMP  LOOP_HORIZONTAL_1
+;--------------------------------------------------------------------------------
+.DIAGONAL:
+ADD R3, R1, R2   ;DIAGONAL = h + w
+SUBI R3, R3, #1  ;f = DIAGONAL - 1
+VLD VR14, R3
+MOV R4, R2	 ;h
+MOV R5, R1	 ;w 
+JMP LOOP_DIAGONAL_1
+
+.LOOP_DIAGONAL_1:
+BLE R4, R0, ENDLOOPS_1  # SAME AS LINEAL     
+JMP LOOP_DIAGONAL_2  
+
+.LOOP_DIAGONAL_2:   
+BLE R5, R0, ENDLOOP_DIAGONAL_2
+ADD R6, R4, R5
+VLD VR5, R6
+VOPG VR6, VR5, VR14
+VST R9, VR6   ;SE GUARDA EN EL ARCHIVO DEL DEGRADADO
+ADDI R9, R9, 1
+SUBI R5, R5, #1  
+JMP LOOP_DIAGONAL_2
+
+.ENDLOOP_DIAGONAL_2:
+SUBI R4, R4, #1
+MOV R5, R1
+JMP  LOOP_DIAGONAL_1
+;--------------------------------------------------------------------------------
+.OWN:
+DIVI R3, R1, #3  ;interval = h // 3
+VLOAD VR1, VR11  ;result = [] -> COLOR1
+MULI R8, R3, #2  ;interval_1 = interval * 2
+MOV R4, R2	 ;COUNTER h
+MOV R5, R1	 ;COUNTER w 
+JMP LOOP_OWN_1
+
+.LOOP_OWN_1:
+BLE R4, R0, ENDLOOPS_1 
+JMP LOOP_OWN_2 
+
+.LOOP_OWN_2:   
+BLE R5, R0, ENDLOOP_OWN_2
+VST R9, VR1   ;SE GUARDA EN EL ARCHIVO DEL DEGRADADO
+ADDI R9, R9, 1
+SUBI R5, R5, #1  
+JMP LOOP_OWN_2
+
+.ENDLOOP_OWN_2:
+SUBI R4, R4, #1
+MOV R5, R1
+JMP IF_ELSE
+
+.IF_ELSE
+BLE R4, R3, R_C1  ;R3 = INTERVAL  
+JMP IF_2
+
+.IF_2:
+BLE R4, R8, R_C2  ;R8 = INTERVAL_1
+JMP R_C1
+
+.R_C1:
+VST VR1, VR11
+JMP  LOOP_OWN_1
+
+.R_C2:
+VST VR1, VR12
+JMP  LOOP_OWN_1
+;--------------------------------------------------------------------------------
+.ENDLOOPS_1:  ;VERTICAL, HORIZONTAL, DIAGONAL, OWN
+JMP #LINEA ;saltamos a la línea del main
+;--------------------------------------------------------------------------------
+.END:
+MOV R0, #1  ;# END ALL PROCESS
